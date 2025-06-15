@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>量子智能聊天助手</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="font-rajdhani bg-dark text-light min-h-screen flex items-center justify-center overflow-hidden">
+  <!-- 背景粒子效果 -->
+  <div id="particles" class="fixed inset-0 z-0"></div>
+
+  <!-- 主容器 -->
+  <div class="chat-container relative w-[clamp(320px,90vw,500px)] h-[clamp(500px,80vh,800px)] bg-gradient-to-br from-dark to-accent/80 rounded-3xl overflow-hidden glow-border animate-pulse-slow z-10 flex flex-col">
+
+    <!-- 顶部装饰条 -->
+    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-secondary to-accent"></div>
+
+    <!-- 头部 -->
+    <header class="p-6 bg-dark/70 backdrop-blur-md border-b border-primary/30 relative overflow-hidden">
+      <div class="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wMykiIGQ9Ik0zIDBoNTZ2NTZIM3oiLz48cGF0aCBkPSJNMzYgMzBoLTR2NGgzNnYtNGgtMzJ6TTI2IDIwaC00djRoMzJ2LTRoLTI4ek0xNiAxdjRoMzJWMWhILjV2NGgtNHYtNGgxNnoiIGZpbGw9InJnYmEoMTM4LDQzLDIyNiwwLjA1KSIvPjxwYXRoIGZpbGw9InJnYmEoMjU1LDAgMykiIGQ9Ik00MCAxMGgtNHY0aDR2LTR6Ii8+PC9nPjwvc3ZnPg==')] opacity-30"></div>
+      <h1 class="text-[clamp(1.5rem,3vw,2.5rem)] font-orbitron font-black text-neon text-shadow-neon tracking-wider relative z-10">
+        量子<span class="text-secondary">智能</span>聊天助手
+      </h1>
+      <div class="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
+    </header>
+
+    <!-- 聊天区域 - 固定高度并可滚动 -->
+    <div id="chat-box" class="flex-1 p-6 chat-gradient overflow-y-auto space-y-6 relative">
+      <!-- 聊天背景装饰 -->
+      <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxwYXRoIGQ9Ik0gNDAgMCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ1cmwoI3JlZCIiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-20 pointer-events-none"></div>
+
+      <!-- 欢迎消息 -->
+      <div class="chat-bubble ai bg-glass rounded-2xl rounded-bl-none shadow-lg shadow-primary/20 max-w-[80%] animate-float">
+        <div class="flex items-start space-x-3">
+          <div class="w-8 h-8 rounded-full bg-primary/30 flex items-center justify-center">
+            <i class="fa fa-robot text-primary"></i>
+          </div>
+          <div>
+            <div class="text-xs text-primary/70 mb-1">量子AI</div>
+            <p class="text-light/90 leading-relaxed">你好！我是量子智能聊天助手，有什么可以帮助你的吗？</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部输入区域 -->
+    <footer class="p-4 bg-dark/80 backdrop-blur-md border-t border-primary/30 relative flex-shrink-0">
+      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
+      <div class="flex items-center space-x-3">
+        <!-- 文件上传按钮 -->
+        <label for="file-upload" class="cursor-pointer w-10 h-10 rounded-full bg-glass flex items-center justify-center border border-primary/30 hover:border-primary/60 transition-all">
+          <i class="fa fa-plus text-light/70"></i>
+        </label>
+        <input id="file-upload" type="file" accept="image/*, .pdf, .doc, .docx, .txt" class="hidden">
+
+        <input id="message-input" type="text" placeholder="输入消息并按回车发送..."
+               class="flex-1 px-5 py-3 rounded-full bg-glass border border-primary/30 text-light placeholder-light/50 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-300 font-medium"
+               autocomplete="off">
+
+        <!-- 发送按钮 -->
+        <button id="send-btn" class="neon-button w-12 h-12 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95">
+          <i class="fa fa-paper-plane-o text-white text-lg"></i>
+        </button>
+      </div>
+
+      <!-- 文件上传进度条 -->
+      <div id="upload-progress" class="mt-2 hidden">
+        <div class="text-xs text-light/60 mb-1">上传中...</div>
+        <div class="w-full bg-dark/60 rounded-full h-1.5">
+          <div id="progress-bar" class="bg-gradient-to-r from-primary to-secondary h-1.5 rounded-full" style="width: 0%"></div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
