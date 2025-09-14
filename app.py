@@ -7,6 +7,8 @@ import json
 import logging
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from web_scraper import scraper, format_scrape_result
+import re
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -68,10 +70,14 @@ def handle_message(data):
     socketio.start_background_task(get_ai_response, user_id, message, files)
 
 
-# 获取AI回复
 def get_ai_response(user_id, message, files=[]):
     """调用DeepSeek API获取AI回复"""
     try:
+        # 检查是否包含网页抓取命令
+        scrape_command = extract_scrape_command(message)
+        if scrape_command:
+            return handle_scrape_command(user_id, message, scrape_command)
+        
         # 构建完整的消息内容，包括文件信息
         full_message = message
         if files:
@@ -164,6 +170,106 @@ def get_ai_response(user_id, message, files=[]):
             'error': error_msg,
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         })
+
+
+def extract_scrape_command(message):
+    """提取网页抓取命令"""
+    # 支持多种命令格式
+    patterns = [
+        r'抓取网页[：:]?\s*(https?://[^\s]+)',
+        r'爬取网页[：:]?\s*(https?://[^\s]+)',
+        r'获取网页信息[：:]?\s*(https?://[^\s]+)',
+        r'scrape[：:]?\s*(https?://[^\s]+)',
+        r'extract[：:]?\s*(https?://[^\s]+)',
+        r'(https?://[^\s]+)',  # 直接匹配URL
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, message, re.IGNORECASE)
+        if match:
+            return match.group(1)
+    
+    return None
+
+
+def handle_scrape_command(user_id, original_message, url):
+    """处理网页抓取命令"""
+    try:
+        logger.info(f"处理网页抓取命令: {url}")
+        
+        # 执行网页抓取
+        result = scraper.scrape_webpage(url)
+        
+        if result['success']:
+            # 格式化抓取结果
+            formatted_result = format_scrape_result(result)
+            
+            # 发送抓取结果给客户端
+            socketio.emit('receive_message', {
+                'user_id': user_id,
+                'message': original_message,
+                'reply': formatted_result,
+                'scrape_data': result,  # 包含原始数据
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            })
+            
+            logger.info(f"网页抓取成功: {url}")
+        else:
+            error_reply = format_scrape_result(result)
+            
+            # 发送错误信息给客户端
+            socketio.emit('receive_message', {
+                'user_id': user_id,
+                'message': original_message,
+                'reply': error_reply,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            })
+            
+            logger.error(f"网页抓取失败: {result['error']}")
+            
+    except Exception as e:
+        error_msg = f"网页抓取异常: {str(e)}"
+        logger.error(error_msg)
+        
+        # 发送错误信息给客户端
+        socketio.emit('receive_message', {
+            'user_id': user_id,
+            'message': original_message,
+            'reply': f'❌ 网页抓取出现异常: {error_msg}',
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+
+
+# 获取AI回复
+
+
+# 网页抓取API接口
+@app.route('/api/scrape', methods=['POST'])
+def scrape_webpage():
+    """网页抓取接口"""
+    try:
+        data = request.get_json()
+        url = data.get('url')
+        
+        if not url:
+            return jsonify({'success': False, 'error': 'URL参数不能为空'}), 400
+        
+        logger.info(f"收到网页抓取请求: {url}")
+        
+        # 执行网页抓取
+        result = scraper.scrape_webpage(url)
+        
+        if result['success']:
+            logger.info(f"网页抓取成功: {url}")
+            return jsonify(result)
+        else:
+            logger.error(f"网页抓取失败: {result['error']}")
+            return jsonify(result), 400
+            
+    except Exception as e:
+        error_msg = f"网页抓取异常: {str(e)}"
+        logger.error(error_msg)
+        return jsonify({'success': False, 'error': error_msg}), 500
 
 
 # API聊天接口（备选方案）
