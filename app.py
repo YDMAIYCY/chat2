@@ -7,6 +7,7 @@ import json
 import logging
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from web_scraper import WebScraper, extract_scraping_commands, scrape_from_text
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -14,11 +15,14 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", logger=False, engineio_logger=False)
+socketio = SocketIO(app, cors_allowed_origins="*", logger=False, engineio_logger=False, async_mode='threading')
 
 UPLOAD_FOLDER = './uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Initialize web scraper
+web_scraper = WebScraper(timeout=15)
 
 # 配置DeepSeek API信息
 DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', 'Bearer sk-ab5b18ee8d9646aa89d14811f29bd156')
@@ -72,6 +76,33 @@ def handle_message(data):
 def get_ai_response(user_id, message, files=[]):
     """调用DeepSeek API获取AI回复"""
     try:
+        # Check for web scraping commands first
+        scraping_commands = extract_scraping_commands(message)
+        
+        if scraping_commands:
+            logger.info(f"检测到网页抓取命令: {len(scraping_commands)}个")
+            
+            # Process scraping commands
+            scraping_results = []
+            for cmd in scraping_commands:
+                result = web_scraper.extract_content(cmd['url'])
+                scraping_results.append(result)
+            
+            # Format scraping results
+            scraping_response = format_scraping_results(scraping_results)
+            
+            # Send scraping results to client
+            socketio.emit('receive_message', {
+                'user_id': user_id,
+                'message': message,
+                'reply': scraping_response,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'type': 'scraping'
+            })
+            
+            logger.info(f"网页抓取完成并发送结果")
+            return
+        
         # 构建完整的消息内容，包括文件信息
         full_message = message
         if files:
@@ -166,6 +197,45 @@ def get_ai_response(user_id, message, files=[]):
         })
 
 
+def format_scraping_results(results):
+    """Format scraping results for display"""
+    if not results:
+        return "没有找到可抓取的内容。"
+    
+    formatted_results = []
+    
+    for result in results:
+        if result['success']:
+            formatted_result = f"""
+🌐 **网页抓取结果**
+
+**网址**: {result['url']}
+**标题**: {result['title']}
+**描述**: {result['description']}
+
+**内容摘要**:
+{result['content'][:300]}{'...' if len(result['content']) > 300 else ''}
+
+**链接数量**: {len(result['links'])}
+**图片数量**: {len(result['images'])}
+"""
+            if result['og_info']:
+                formatted_result += f"\n**Open Graph信息**:\n"
+                for key, value in result['og_info'].items():
+                    formatted_result += f"- {key}: {value}\n"
+        else:
+            formatted_result = f"""
+❌ **抓取失败**
+
+**网址**: {result['url']}
+**错误**: {result['error']}
+"""
+        
+        formatted_results.append(formatted_result)
+    
+    return "\n" + "="*50 + "\n".join(formatted_results) + "="*50
+
+
 # API聊天接口（备选方案）
 @app.route('/api/chat', methods=['POST'])
 def chat():
@@ -236,6 +306,36 @@ def chat():
         return jsonify({
             'error': error_msg,
             'reply': '系统错误，请稍后重试'
+        }), 500
+
+
+@app.route('/api/scrape', methods=['POST'])
+def scrape_webpage():
+    """API endpoint for web scraping"""
+    try:
+        data = request.get_json()
+        url = data.get('url')
+        
+        if not url:
+            return jsonify({
+                'success': False,
+                'error': 'URL参数是必需的'
+            }), 400
+        
+        logger.info(f"API请求抓取网页: {url}")
+        
+        # Scrape the webpage
+        result = web_scraper.extract_content(url)
+        
+        logger.info(f"API抓取完成: {url}")
+        return jsonify(result)
+        
+    except Exception as e:
+        error_msg = f"API抓取异常: {str(e)}"
+        logger.error(error_msg)
+        return jsonify({
+            'success': False,
+            'error': error_msg
         }), 500
 
 
